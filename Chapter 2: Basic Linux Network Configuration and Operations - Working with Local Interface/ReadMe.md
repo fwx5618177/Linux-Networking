@@ -38,5 +38,7 @@
 # netstat
 - 查看网络状态: netstat -rn
 - route本身也是一个命令, route -n
-- 
+
+# 分配IP地址-nmcli(Network Manager Command Line)
+- 展示
 
