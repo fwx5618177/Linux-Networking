@@ -69,5 +69,25 @@
   - 查看结果: `ip route`
   - 新增路由: `sudo route add -net 10.10.12.0 netmask 255.255.255.0 gw 192.168.122.12`
 
+如果要使这个新增的数据持久化，需要添加在文件中。
+- 旧版本的Debian/Ubuntu: /etc/network/interface
+  - 新增: `up route add -net 10.10.12.0 netmask 255.255.255.0 gw 192.168.122.12`
+
+# 开关接口
+新版本使用ip
+- `sudo ip link set ens33` + 开(up)/关(down)
+旧版本使用ifconfig
+- `sudo ifconfig ens33` + up/down
+**注意**
+当你在远程连接时，一定不能改变ip或者routes，或者关掉网络接口。否则你将丢失连接。
+
+# 设置MTU大小
+- MTU: Message Transfer Unit
+- PDU: Protocol Datagram Unit
+- 修改MTU 9000: sudo cmcli con mod "Wired connection 1" 802-3-ethernet.mtu 9000
+- 重启: sudo nmcli connection up "Wired connection 1"
+
+
+
 
 
