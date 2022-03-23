@@ -30,3 +30,9 @@
 |Wavemon|查看已连接的无线网络详情, 尤其是在信号增强和性能相关上|
 |LinSSID|Kismet的图形化工具，擅长挖掘在周围无线网络中的信号强度和信道利用率|
 
+# ARP
+- ARP请求会在每个主机上储存缓存。缓存区叫做ARP cahce / ARP table。
+- `arp -a`
+- 查看`arp`的过时时间: `cat /proc/sys//net/ipv4/neigh/default/gc_stale_time`
+
+
