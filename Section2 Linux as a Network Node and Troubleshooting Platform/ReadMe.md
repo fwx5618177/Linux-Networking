@@ -34,5 +34,36 @@
 - ARP请求会在每个主机上储存缓存。缓存区叫做ARP cahce / ARP table。
 - `arp -a`
 - 查看`arp`的过时时间: `cat /proc/sys//net/ipv4/neigh/default/gc_stale_time`
+- 修改`mac ip`: `arp -s 192.168.122.200 00:11:22:22:33:33`
+- 删除: `arp -i ens33 -d 192.168.122.200`
+- 伪装成给定的ip地址, 比如10.0.0.1的ARP应答: `sudo arp -i eth0 -Ds 10.0.0.2 eth1 pub`
 
+- 查找MAC地址的四种办法：
+    - ip link show | grep link
+    - ifconfig
+- 设置：
+```shell
+$ sudo ip link set dev ens33 down
+$ sudo ip link set dev ens33 address 00:88:77:66:55:44
+$ sudo ip link set dev ens33 device here> up
+```
+# TCP/UDP端口工作
+|名字|端口|
+|---|---|
+|DNS| udp/53, tcp/53|
+|Telnet|tcp/23|
+|SSH|tcp/22|
+|FTP|tcp/20 and tcp/21|
+|HTTP|tcp/80|
+|HTTPS|tcp/443|
+|SNMP|udp/162|
+|Syslog|tcp/443|
 
+## 监听端口变化
+netstat是个常用的传统工具，可以获取网络变化的状态。以下为常用的参数:
+- t: TCP ports
+- u: UDP ports
+- a: 所有端口，包含监听和没有监听在内
+- n: 不对指定的ip进行解析。如果为空，则解析列表中的每个ip
+
+- `netstat -tuan`
