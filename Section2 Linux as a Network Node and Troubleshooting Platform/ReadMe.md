@@ -99,5 +99,28 @@ sudo ss -tuap  | tr -s ' ' | cut -d ' ' -f 1,2,4,5,6 --output-delimiter=$'\t'
 - 扫描多个端口： nc -zv 192.168.122.241 1-1024
 - 过滤扫描结果: `nc -zv 192.168.122.241 1-1024 | grep -v refused`
 
+## Linux的0/1/2三者的意义
+|名字|代表|
+|---|---|
+|STDIN|0|
+|STDOUT|1|
+|STDERR|2|
+
+- 重定向STDERR到STDOUT: `sudo nc -zv -w2 192.168.3.5 1-1024 2>&1 | grep -v refused`
+
+- 查看udp扫描端口的耗时: `date ; nc -u -zv 192.168.3.5 1-1024 2>&1 | grep succeed ; date`
+- 连接`web`服务器：`nc 192.168.3.5 80`
+- 监听端口，伪造虚拟主机:`while true; do cat index.html | nc -w2 -l 80 ; done`
+- 测试打印时间:`while true; do echo -e "HTTP/1.1 200 OK\n\n ${date}" | nc -l 1500 -w2; done`
+
+# Nmap
+- 扫描网络资源
+- 本质是使用SYN扫描。每次送出一个SYN包，然后等待SYN-ACK包的返回。如果没有获取，则认为是关闭的。
+- 扫描网段：`nmap -sn 192.168.122.0/24`
+- 查询tcp/443运行的机器: `nmap -p 443 -open 192.168.122.0/24`
+- 如果想全链接扫描（完整完成了三次握手）,加上`-sT`
+- 扫描udp端口: `nmap -sU -p 53 --open 192.168.3.0/24`
+
+
 
 
