@@ -121,6 +121,16 @@ sudo ss -tuap  | tr -s ' ' | cut -d ' ' -f 1,2,4,5,6 --output-delimiter=$'\t'
 - 如果想全链接扫描（完整完成了三次握手）,加上`-sT`
 - 扫描udp端口: `nmap -sU -p 53 --open 192.168.3.0/24`
 
+# 无线网络诊断
+- 工具: Kismet / Wavemon / LinSSID
+
+# 防火墙
+|名字|描述|
+|---|---|
+|iptables|控制iptables防火墙的主要命令|
+|nft|控制新的nftables防火墙|
+
+
 
 
 
