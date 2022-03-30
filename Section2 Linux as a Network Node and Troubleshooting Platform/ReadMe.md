@@ -157,7 +157,7 @@ Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
  pkts bytes target     prot opt in     out     source               destination    
 ```
 
-还有NAT表和Mangle表。
+- 还有NAT表和Mangle表。
 - 查看默认的规则链: `iptables -L -v`
 
 参数说明:
@@ -174,7 +174,87 @@ sudo iptables -A INPUT -i ens33 -p tcp -s 1.2.3.0/24 --dport 22 -j ACCEPT
 
 sudo iptables -A INPUT -p tcp --dport 443 -j ACCEPT
 ```
+- --line-numbers: 找出该条规则的行号,再通过行号删除规则
+- I: 在制定的位置插入规则
+- A: 在列表最后添加
 
+拒绝https访问，但是允许其他的所有:
+```shell
+sudo iptables -I INPUT 2 -i ens33 -p tcp -s 1.2.3.5. --dport 443 -j DROP
+```
+- --src-range 192.168.122.10-192.168.122.20: 控制能够访问的ip段和访问权限
+    - 此办法也可以封禁其他的网络利用`SSH`登陆, 只允许自己指定的网段登陆
+```shell
+sudo iptables -I INPUT 2 -i ens33 -p tcp --dport 22 -j DROP
+```
+- 删除指定行的规则: `sudo iptables -D INPUT [number]`
+- j LOG: 开启日志
+- -log-level: 日志的等级
+- -log-prefix 'text goes here': 描述文本
 
+日志的功能：
+- 登陆ssh会话，允许我们追踪来访者，防止被人扫描主机的管理服务
+- 寻找那些不在被允许范围内、尝试连接的人
+- 和web日志结合，去查看具体的问题
+ 
+- 写日志: `sudo iptables -A INPUT -j LOG`
+- 只在指定子网写日志: `sudo iptables -A INPUT -s 192.168.122.0/24 -j LOG`
+- 增加日志的等级和描述日志: `sudo iptables -A INPUT -s 192.168.122.0/24 -j LOG --log-level 3 -log-prefix '* SUSPECT TRAFIIC RULE 9*'`
+- 日志的位置: 
+    - Ubuntu: `/var/log/kern.log`
+    - RedHat: `/var/log/messages`
+- 规则加备注(-m comment --comment "TEXT"): `sudo iptables -A INPUT -i enss3 -p tcp -s 1.2.3.0/24 --dport 22 -j ACCEPT -m comment --comment "Permit Admin"`
 
+- 更改规则链的默认值: `iptables -P INPUT DENY`or `ACCEPT`
 
+- 上述的所有规则只会储存在内存中，如果机器重启则会丢失。如果要保存，需要使用`iptables-save`命令
+
+## NAT table
+NAT常用来转换ip和子网。
+
+- 如果NAT table入口是针对TCP的会话，则在TCP关闭后移出这个映射。
+- 如果NAT table入口是UDP，则在一度时间的不活跃后删除。
+
+- 查看Nat table: `sudo iptables -L -v -t nat`
+```shell
+Chain PREROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+
+Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+
+Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination        
+```
+
+- 告诉网关伪装所有离开eth1接口的IP地址: `sudo iptables -t nat -A POSTOUTING -o eth1 -j MASQUERADE`
+
+## Mangle table
+常用于手动调整IP包传输的值。
+- DSL会封装，卫星链路会小一些。
+- 当遇到SYN包时，调整MSS（最大片元大小）为更小(1412): `iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1412`
+    - 测试: `ping -M do -s 1400 [ip]`
+
+## iptables执行的顺序
+```mermaid
+graph TD
+
+start_packet([包]) --> 初始路由 --> sub_rout_state[[状态-连接]] --> op_mangle_prerouting[Mangle PreRouting] --> con_localhost{源是否是本地}
+
+con_localhost --> |Yes|op_mangle_input[Mangle Input]
+con_localhost --> |No|op_nat[Nat Prerouting] --> sub_routing_decision_1[[路由判定]] --> con_packet_host{包是给本主机的?}
+
+con_packet_host --> |Yes|op_mangle_input --> op_filter_input[filter INPUT] --> op_security_input[Security Input] --> op_nat_input[Nat Input] --> end_local_process([本地处理])
+con_packet_host --> |No|op_mangle_forward[Mangle Forward] --> op_filter_forward[filter Forward] --> op_security_forward[Security Forward] --> sub_outbond_i[[离开接口]] --> op_mangle_post[mangle Postouting] --> con_local_dest[目标是本地么?]
+
+con_local_dest --> |Yes|end_packet([包离开])
+con_local_dest --> |No|op_nat_post[Nat Postouting] --> end_packet
+
+start_local_packet[本地生成的包] --> sub_rout_state_2[[状态-连接]] --> op_mangle_out[Mangle Output] --> op_nat_out[Nat Output] --> sub_routing_decision_2[[路由判定]] --> op_filter_out[Filter Output] --> op_se_out[Security Output] --> sub_outbond_i
+
+```
+
+## nftables
