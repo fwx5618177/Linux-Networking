@@ -130,6 +130,50 @@ sudo ss -tuap  | tr -s ' ' | cut -d ' ' -f 1,2,4,5,6 --output-delimiter=$'\t'
 |iptables|控制iptables防火墙的主要命令|
 |nft|控制新的nftables防火墙|
 
+## iptables
+Linux默认防火墙应用。
+- 启用后，会控制主机的所有进出口
+- 有一组规则链
+
+行为:
+- Accept: 包通过
+- Drop: 包被丢弃，不允许通过
+- Return: 阻止包通过，并返回上一条规则链
+
+filter表:
+- Input: 控制进入主机的包
+- Forward: 处理转发到他处的传入包
+- Output: 处理离开主机的包
+
+表结构:
+```shell
+Chain INPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+
+Chain FORWARD (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination         
+
+Chain OUTPUT (policy ACCEPT 0 packets, 0 bytes)
+ pkts bytes target     prot opt in     out     source               destination    
+```
+
+还有NAT表和Mangle表。
+- 查看默认的规则链: `iptables -L -v`
+
+参数说明:
+- A: 指定规则表
+- I: 应用到哪个接口
+- p(protocol): 区分TCP/UDP/ICMP，也可以使用`all`
+- s(source): 源主机的主机名或者ip地址
+- dport(destination port): 常见的端口, 如TCP: SSH(22),HTTPS(443)。如果在多个网络中运行，常见此条命令。
+- j(target): 目标的名字: ACCEPT/DROP/RETURN, 此参数是必须的
+
+- 允许1.2.3.0/24的主机连接我们主机的tcp/22， 而允许其他的所有主机连接到tcp/443：
+```shell
+sudo iptables -A INPUT -i ens33 -p tcp -s 1.2.3.0/24 --dport 22 -j ACCEPT
+
+sudo iptables -A INPUT -p tcp --dport 443 -j ACCEPT
+```
 
 
 
