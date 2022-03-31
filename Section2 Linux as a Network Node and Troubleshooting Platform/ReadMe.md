@@ -258,3 +258,183 @@ start_local_packet[本地生成的包] --> sub_rout_state_2[[状态-连接]] -->
 ```
 
 ## nftables
+历史：
+- iptables正在被淘汰，且不支持`IPv6`需要下载`ip6tables`
+- nftables更快，更容易配置，更方便使用`网络即代码`的工具。比如Terraform, Ansible, Puppet, Chef, Salt
+
+- 转换工作时间: `iptables-translate -A INPUT -i ens33 -p tcp -s 1.2.3.0/24 --dport 22 -j ACCEPT -m comment --comment "Permit Admin"`
+
+- 在添加规则前，创建一个表和链:
+- 创建: `nft add table ip iptable1`
+```shell
+nft list tables [<family>]
+nft list table [<family>] <name> [-n] [-a]
+nft (add | delete | flush) table [<family>] <name>
+
+```
+
+- 新建链:
+```shell
+#新建chain属于表iptable1，位置为input、类型为filter、优先级为0，缺省策略为accept
+nft 'add chain ip iptable1 filter-input-ens33-p0 { type filter hook input priority 0 ; policy accept;}'
+
+#在iptable1表的filter-input-ens33-p0链中添加rule，drop掉从192.168.232.1到192.168.232.110的80端口的包
+nft add rule iptable1 filter-input-ens33-p0 ip saddr 192.168.232.1 ip daddr 192.168.232.110 tcp dport 80 drop
+```
+- 查看:
+```shell
+sudo nft list ruleset
+table ip filter {
+    chain INPUT {
+        iifname "ens33" ip saddr 1.2.3.0/24 tcp dport 22 counter packets 0 bytes 0 accept comment "Permit Admin"
+
+        iifname "ens33" tcp dport 22 counter packets 0 bytes 0 drop comment "Block Admin"
+
+        iifname "ens33" ip saddr 1.2.3.5 tcp dport 443 counter packets 0 bytes 0 drop comment "Block inbound Web"
+
+        tcp dport 443 counter packets 0 bytes 0 accept comment "Permit all Web Access"
+    }
+}
+```
+
+- 与`iptables`相同，nftables不是持久化存储
+- 默认的nftools的规则集在`/etc/nftools.conf`, 如果要持久化可以加到此文件内
+- 例子结构，匹配网络规则:
+```shell
+nft add rule ip Firewall Forward ip daddr vmap {\
+    192.168.21.1-192.168.21.254 : jump chain-pci21, \
+    192.168.21.1-192.168.21.254 : jump chain-servervlan, \
+    192.168.23.1-192.168.23.254 : jump chian-desktopvlan23 \
+}
+```
+- 以上的三条链都有自己的入站规则集和出栈规则集
+
+- 删除或者移除:
+```shell
+sudo iptables -F INPUT
+sudo iptables -F FORWARD
+
+sudo nft flush ruleset
+```
+
+
+
+# 网络安全
+主要内容:
+- 为什么需要保护主机
+- 特定云的安全注意事项
+- 常见的行业特定安全标准
+
+## apt-get常见命令
+- 更新：`sudo apt-get update`
+- 升级: `sudo apt-get upgrade`
+
+- 查看系统参数: `cat /proc/cpuinfo`
+- 查看内存: `cat /proc/meminfo`
+- 查看系统内核版本: `cat /proc/version`
+- 查看IP/TCP参数: `ls /proc/sys/net/ipv4`
+- 查看系统版本: `cat /etc/issue` / `uname -v`
+- 查看所有硬件目录: `lshw`
+
+获取信息的脚本:
+```shell
+echo -n "Basic Inventory for Hostname: "
+uname -n
+
+echo ========================
+
+dmidecode | sed -n '/System Information/,+2p' | sed 's/\x09//'
+dmesg | grep Hypervisor
+dmidecode | grep "Serial Number" | grep -v "Not Specified" | grep -v None
+
+echo ========================
+
+echo "OS Information:"
+uname -o -r
+
+if [ -f /etc/redhat-release ]; then
+    echo -n " "
+    cat /etc/redhat-release
+fi
+
+if [ -f /etc/issue ]; then
+    cat /etc/issue
+fi
+
+echo ========================
+
+echo "IP Information: "
+ip ad | grep inet | grep -v "127.0.0.1" | grep -v "::1/128" | tr -s " " | cut -d " " -f 3
+
+# old version
+#ifconfig | grep "inet" | grep -v "127.0.0.1" | grep -v "::1/128" | tr -s " " | cut -d " " -f 3
+
+echo ========================
+
+echo "CPU Information: "
+cat /proc/cpuinfo | grep "model name\|MH\|vendor_id" | sort -r | uniq
+
+echo -n "Socket Count: "
+cat /proc/cpuinfo | grep processor | wc -l
+
+echo -n "Core Count (Total): "
+cat /proc/cpuinfo | grep cores | cut -d ":" -f 2 | awk '{ sum+=$1 } END { print sum }'
+
+echo ========================
+
+echo "Memory Information: "
+grep MemTotal /proc/meminfo | awk '{ print $2, $3 }'
+
+echo ========================
+
+echo "Disk Information: "
+fdisk -l | grep Disk | grep dev
+
+```
+
+- 罗列软件清单: `sudo apt list --installed | wc -l`
+- 查看软件的目录: `sudo dpkg -L openssh-client`
+
+## OSQuery
+- SQL 驱动的分析和监控操作系统的工具，是操作系统分析框架
+
+Ubuntu安装OSQuery:
+```shell
+echo "deb [arch=amd64] https://pkg.osquery.io/deb deb main" | sudo tee /etc/apt/sources.list.d/osquery.list
+
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 1484120AC4E9F8A1A577AEEE97A80C63C9D8B80B
+
+sudo apt update
+
+sudo apt-get install osquery
+```
+OSQuery的三大组成部分:
+1. OSqueryd: 规划队列，记录结果，作为主要应用
+2. OSqueryi: 管理员看到的接口, 交互式shell
+3. OSqueryctl: 测试配置和管理osqueryd
+
+- 进入osquery: `osqueryi`
+- 查看databases tables: `.tables`
+- 查看`OS version`: `select * from os_version;`
+- 获取本地ip，子网掩码(排除回环地址): `select interface, address, mask from interface_addresses where interface NOT LIKE '%lo%';`
+- 查看已安装包文件: `select * from deb_packages limit 10;`
+- 获取正在运行的进程: `select pid, name, start_time from processes order by start_time desc limit 10;`
+- 用sha256去命名进程: 
+```sql
+select distinct h.sha256, p.name, u.username, start_time
+from processes as p
+inner join hash as h on h.path = p.path
+inner join users as u on u.uid = p.uid
+order by start_time desc
+limit 5;
+```
+
+## ssh
+- 安装openssh-server:
+```shell
+sudo apt-get update && sudo apt-get upgrade
+
+sudo apt-get install openssh-server
+```
+
+- 查看sshd的配置内容：`sudo sshd -T | grep permitrootlogin`
