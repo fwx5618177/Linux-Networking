@@ -10,10 +10,14 @@
 # Todo
 
 2022/03/10 20:30
-1. [ ] 阅读笔记
-2. [ ] 代码的测试
+1. [x] 阅读笔记
+2. [x] 代码的测试
 
 # 笔记链接
 - [x] 前言
 - [x] 第一章 Linux Family
 - [x] 第二章 基础Linux网络配置和操作
+
+# 推荐阅读
+- Mastering Linux Administration
+- Linux System Programming Techniques
